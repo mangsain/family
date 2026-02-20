@@ -105,6 +105,15 @@ header{
   font-size:14px;
 }
 
+.delete-btn{
+  width:100%;
+  padding:8px;
+  background:red;
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+
 @media(max-width:900px){
   .container{
     flex-direction:column;
@@ -145,45 +154,73 @@ header{
 
 <script>
 
-// 🔥 CONFIG FIREBASE KAMU
+// 🔥 CONFIG FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyDY5lxMs2Pj1yFeCy0eWbEyR903HodOTEc",
   authDomain: "kenangan-palaktaguk.firebaseapp.com",
-  projectId: "kenangan-palaktaguk",
-  storageBucket: "kenangan-palaktaguk.firebasestorage.app",
-  messagingSenderId: "1050492641731",
-  appId: "1:1050492641731:web:b39dc3f3a89c1ec1bd9d76",
-  measurementId: "G-9N7ZM11TS6"
+  projectId: "kenangan-palaktaguk"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// UPLOAD FOTO
+
+// ================= AUTO KOMPRES GAMBAR =================
+function compressImage(file, callback){
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+
+  reader.onload = function(event){
+    const img = new Image();
+    img.src = event.target.result;
+
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+
+      const maxWidth = 800;
+      const scale = maxWidth / img.width;
+
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+      callback(compressedBase64);
+    }
+  }
+}
+
+
+// ================= UPLOAD FOTO =================
 function uploadFile(){
   const file = document.getElementById("fileInput").files[0];
   if(!file) return alert("Pilih foto dulu!");
 
-  if(file.size > 1000000){
-    return alert("Ukuran maksimal 1MB!");
-  }
+  compressImage(file, function(compressedImage){
 
-  const reader = new FileReader();
-
-  reader.onload = function(e){
     db.collection("kenangan").add({
       fileName: file.name,
-      fileData: e.target.result,
+      fileData: compressedImage,
       createdAt: new Date()
     }).then(()=>{
       alert("Upload berhasil!");
     });
-  };
 
-  reader.readAsDataURL(file);
+  });
 }
 
-// TAMPILKAN DATA
+
+// ================= DELETE FOTO =================
+function deletePhoto(id){
+  if(confirm("Yakin ingin hapus foto ini?")){
+    db.collection("kenangan").doc(id).delete();
+  }
+}
+
+
+// ================= TAMPILKAN DATA =================
 db.collection("kenangan")
 .orderBy("createdAt","desc")
 .onSnapshot(snapshot=>{
@@ -198,6 +235,9 @@ db.collection("kenangan")
       <div class="card">
         <img src="${data.fileData}">
         <p>${data.fileName}</p>
+        <button class="delete-btn" onclick="deletePhoto('${doc.id}')">
+          Hapus
+        </button>
       </div>
     `;
   });
