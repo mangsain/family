@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kenangan UMI Family</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Segoe UI',sans-serif;
+}
+
+body{
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:white;
+  min-height:100vh;
+}
+
+header{
+  text-align:center;
+  padding:30px;
+  font-size:28px;
+  font-weight:bold;
+  letter-spacing:2px;
+}
+
+.container{
+  display:flex;
+  gap:20px;
+  padding:20px;
+}
+
+.upload-panel{
+  width:30%;
+  background:rgba(255,255,255,0.1);
+  padding:25px;
+  border-radius:15px;
+  backdrop-filter:blur(10px);
+  box-shadow:0 10px 25px rgba(0,0,0,0.3);
+}
+
+.upload-panel input{
+  width:100%;
+  padding:10px;
+  margin-bottom:15px;
+  border-radius:8px;
+  border:none;
+}
+
+.upload-panel button{
+  width:100%;
+  padding:12px;
+  background:#00c6ff;
+  border:none;
+  border-radius:8px;
+  font-weight:bold;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.upload-panel button:hover{
+  background:#0072ff;
+}
+
+.gallery-panel{
+  width:70%;
+  background:rgba(255,255,255,0.1);
+  padding:20px;
+  border-radius:15px;
+  backdrop-filter:blur(10px);
+  box-shadow:0 10px 25px rgba(0,0,0,0.3);
+  overflow-y:auto;
+  max-height:75vh;
+}
+
+.gallery-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:15px;
+}
+
+.card{
+  background:white;
+  color:black;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 5px 15px rgba(0,0,0,0.2);
+  transition:0.3s;
+}
+
+.card:hover{
+  transform:scale(1.05);
+}
+
+.card img{
+  width:100%;
+  display:block;
+}
+
+.card p{
+  padding:10px;
+  font-size:14px;
+}
+
+@media(max-width:900px){
+  .container{
+    flex-direction:column;
+  }
+  .upload-panel,
+  .gallery-panel{
+    width:100%;
+  }
+}
+</style>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+</head>
+<body>
+
+<header>
+📸 KENANGAN UMI FAMILY
+</header>
+
+<div class="container">
+
+  <div class="upload-panel">
+    <h2>Upload Foto Kenangan</h2>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="uploadFile()">Upload Sekarang</button>
+  </div>
+
+  <div class="gallery-panel">
+    <h2>Galeri Kenangan</h2>
+    <br>
+    <div id="gallery" class="gallery-grid"></div>
+  </div>
+
+</div>
+
+<script>
+
+// 🔥 CONFIG FIREBASE KAMU
+const firebaseConfig = {
+  apiKey: "AIzaSyDY5lxMs2Pj1yFeCy0eWbEyR903HodOTEc",
+  authDomain: "kenangan-palaktaguk.firebaseapp.com",
+  projectId: "kenangan-palaktaguk",
+  storageBucket: "kenangan-palaktaguk.firebasestorage.app",
+  messagingSenderId: "1050492641731",
+  appId: "1:1050492641731:web:b39dc3f3a89c1ec1bd9d76",
+  measurementId: "G-9N7ZM11TS6"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// UPLOAD FOTO
+function uploadFile(){
+  const file = document.getElementById("fileInput").files[0];
+  if(!file) return alert("Pilih foto dulu!");
+
+  if(file.size > 1000000){
+    return alert("Ukuran maksimal 1MB!");
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+    db.collection("kenangan").add({
+      fileName: file.name,
+      fileData: e.target.result,
+      createdAt: new Date()
+    }).then(()=>{
+      alert("Upload berhasil!");
+    });
+  };
+
+  reader.readAsDataURL(file);
+}
+
+// TAMPILKAN DATA
+db.collection("kenangan")
+.orderBy("createdAt","desc")
+.onSnapshot(snapshot=>{
+
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML = "";
+
+  snapshot.forEach(doc=>{
+    const data = doc.data();
+
+    gallery.innerHTML += `
+      <div class="card">
+        <img src="${data.fileData}">
+        <p>${data.fileName}</p>
+      </div>
+    `;
+  });
+
+});
+
+</script>
+
+</body>
+</html>
