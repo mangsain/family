@@ -159,31 +159,67 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// UPLOAD FOTO
+
+// ================= AUTO KOMPRES GAMBAR =================
+function compressImage(file, callback){
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+
+  reader.onload = function(event){
+    const img = new Image();
+    img.src = event.target.result;
+
+    img.onload = function(){
+
+      const canvas = document.createElement("canvas");
+
+      let maxWidth = 800;
+      let scale = maxWidth / img.width;
+
+      if(scale > 1) scale = 1;
+
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      let quality = 0.8;
+      let compressedData = canvas.toDataURL("image/jpeg", quality);
+
+      // Pastikan hasil < 1MB
+      while(compressedData.length > 1000000 && quality > 0.3){
+        quality -= 0.1;
+        compressedData = canvas.toDataURL("image/jpeg", quality);
+      }
+
+      callback(compressedData);
+    }
+  }
+}
+
+
+// ================= UPLOAD FOTO =================
 function uploadFile(){
   const file = document.getElementById("fileInput").files[0];
   if(!file) return alert("Pilih foto dulu!");
 
-  if(file.size > 1000000){
-    return alert("Ukuran maksimal 1MB!");
-  }
+  compressImage(file, function(compressedImage){
 
-  const reader = new FileReader();
-
-  reader.onload = function(e){
     db.collection("kenangan").add({
       fileName: file.name,
-      fileData: e.target.result,
+      fileData: compressedImage,
       createdAt: new Date()
     }).then(()=>{
       alert("Upload berhasil!");
+      document.getElementById("fileInput").value = "";
     });
-  };
 
-  reader.readAsDataURL(file);
+  });
 }
 
-// TAMPILKAN DATA
+
+// ================= TAMPILKAN DATA =================
 db.collection("kenangan")
 .orderBy("createdAt","desc")
 .onSnapshot(snapshot=>{
