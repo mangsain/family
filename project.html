@@ -65,15 +65,21 @@ header{
   background:#0072ff;
 }
 
-.gallery-panel{
+.right-panel{
   width:70%;
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+
+.gallery-panel, .chat-panel{
   background:rgba(255,255,255,0.1);
   padding:20px;
   border-radius:15px;
   backdrop-filter:blur(10px);
   box-shadow:0 10px 25px rgba(0,0,0,0.3);
-  overflow-y:auto;
-  max-height:75vh;
+  max-height:40vh;
+  overflow:auto;
 }
 
 .gallery-grid{
@@ -88,21 +94,42 @@ header{
   border-radius:12px;
   overflow:hidden;
   box-shadow:0 5px 15px rgba(0,0,0,0.2);
-  transition:0.3s;
-}
-
-.card:hover{
-  transform:scale(1.05);
 }
 
 .card img{
   width:100%;
-  display:block;
 }
 
-.card p{
+.chat-box{
+  background:white;
+  color:black;
+  height:180px;
+  overflow:auto;
   padding:10px;
-  font-size:14px;
+  border-radius:10px;
+  margin-bottom:10px;
+}
+
+.chat-input{
+  width:100%;
+  padding:8px;
+  margin-bottom:8px;
+  border-radius:6px;
+  border:none;
+}
+
+.chat-btn{
+  width:100%;
+  padding:10px;
+  background:#00c6ff;
+  border:none;
+  border-radius:6px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.chat-btn:hover{
+  background:#0072ff;
 }
 
 @media(max-width:900px){
@@ -110,7 +137,7 @@ header{
     flex-direction:column;
   }
   .upload-panel,
-  .gallery-panel{
+  .right-panel{
     width:100%;
   }
 }
@@ -119,6 +146,7 @@ header{
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 </head>
 <body>
@@ -135,17 +163,28 @@ header{
     <button onclick="uploadFile()">Upload Sekarang</button>
   </div>
 
-  <div class="gallery-panel">
-    <h2>Galeri Kenangan</h2>
-    <br>
-    <div id="gallery" class="gallery-grid"></div>
+  <div class="right-panel">
+
+    <div class="gallery-panel">
+      <h2>Galeri Kenangan</h2><br>
+      <div id="gallery" class="gallery-grid"></div>
+    </div>
+
+    <div class="chat-panel">
+      <h2>💬 Live Chat</h2><br>
+      <div id="chatBox" class="chat-box"></div>
+      <input type="text" id="chatName" class="chat-input" placeholder="Nama">
+      <input type="text" id="chatMessage" class="chat-input" placeholder="Tulis pesan...">
+      <button class="chat-btn" onclick="sendMessage()">Kirim Pesan</button>
+    </div>
+
   </div>
 
 </div>
 
 <script>
 
-// 🔥 CONFIG FIREBASE KAMU
+// 🔥 CONFIG FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyDY5lxMs2Pj1yFeCy0eWbEyR903HodOTEc",
   authDomain: "kenangan-palaktaguk.firebaseapp.com",
@@ -153,14 +192,17 @@ const firebaseConfig = {
   storageBucket: "kenangan-palaktaguk.firebasestorage.app",
   messagingSenderId: "1050492641731",
   appId: "1:1050492641731:web:b39dc3f3a89c1ec1bd9d76",
-  measurementId: "G-9N7ZM11TS6"
+  databaseURL: "https://kenangan-palaktaguk-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.firestore();
+const rtdb = firebase.database();
+const chatRef = rtdb.ref("livechat");
 
 
-// ================= AUTO KOMPRES GAMBAR =================
+// ================= UPLOAD FOTO =================
 function compressImage(file, callback){
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -170,12 +212,9 @@ function compressImage(file, callback){
     img.src = event.target.result;
 
     img.onload = function(){
-
       const canvas = document.createElement("canvas");
-
       let maxWidth = 800;
       let scale = maxWidth / img.width;
-
       if(scale > 1) scale = 1;
 
       canvas.width = img.width * scale;
@@ -187,7 +226,6 @@ function compressImage(file, callback){
       let quality = 0.8;
       let compressedData = canvas.toDataURL("image/jpeg", quality);
 
-      // Pastikan hasil < 1MB
       while(compressedData.length > 1000000 && quality > 0.3){
         quality -= 0.1;
         compressedData = canvas.toDataURL("image/jpeg", quality);
@@ -198,14 +236,11 @@ function compressImage(file, callback){
   }
 }
 
-
-// ================= UPLOAD FOTO =================
 function uploadFile(){
   const file = document.getElementById("fileInput").files[0];
   if(!file) return alert("Pilih foto dulu!");
 
   compressImage(file, function(compressedImage){
-
     db.collection("kenangan").add({
       fileName: file.name,
       fileData: compressedImage,
@@ -214,22 +249,17 @@ function uploadFile(){
       alert("Upload berhasil!");
       document.getElementById("fileInput").value = "";
     });
-
   });
 }
 
-
-// ================= TAMPILKAN DATA =================
 db.collection("kenangan")
 .orderBy("createdAt","desc")
 .onSnapshot(snapshot=>{
-
   const gallery = document.getElementById("gallery");
   gallery.innerHTML = "";
 
   snapshot.forEach(doc=>{
     const data = doc.data();
-
     gallery.innerHTML += `
       <div class="card">
         <img src="${data.fileData}">
@@ -237,7 +267,35 @@ db.collection("kenangan")
       </div>
     `;
   });
+});
 
+
+// ================= LIVE CHAT =================
+function sendMessage(){
+  const name = document.getElementById("chatName").value.trim();
+  const message = document.getElementById("chatMessage").value.trim();
+
+  if(!name || !message) return alert("Isi nama dan pesan!");
+
+  chatRef.push({
+    name: name,
+    message: message,
+    time: Date.now()
+  });
+
+  document.getElementById("chatMessage").value = "";
+}
+
+chatRef.on("value", snapshot=>{
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML = "";
+
+  snapshot.forEach(child=>{
+    const data = child.val();
+    chatBox.innerHTML += `<p><b>${data.name}:</b> ${data.message}</p>`;
+  });
+
+  chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 </script>
